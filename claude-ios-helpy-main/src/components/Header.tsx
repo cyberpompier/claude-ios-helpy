@@ -42,6 +42,8 @@ const Header = () => {
                   { to: '/about', label: 'About' },
                   { to: '/profile', label: 'Profile' },
                   { to: '/settings', label: 'Settings' },
+                  { to: '/login', label: 'Login' },
+                  { to: '/register', label: 'Register' },
                 ].map((item) => (
                   <li key={item.label}>
                     <Link 

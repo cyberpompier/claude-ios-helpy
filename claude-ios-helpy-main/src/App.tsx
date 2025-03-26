@@ -8,6 +8,8 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Artisans from './pages/Artisans';
 import ArtisanDetail from './pages/ArtisanDetail';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
 // PWA registration
 import { registerSW } from 'virtual:pwa-register';
@@ -60,6 +62,8 @@ function App() {
             <Route path="/about" element={<About />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
           </Routes>
         </main>
         

@@ -14,14 +14,23 @@ interface UserProfile {
 const Profile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [updatedProfile, setUpdatedProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // This is just an example query - adjust according to your actual Supabase schema
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          console.error('No user logged in');
+          return;
+        }
+
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
+          .eq('id', user.id)
           .single();
         
         if (error && error.code !== 'PGRST116') {
@@ -30,16 +39,22 @@ const Profile = () => {
         
         if (data) {
           setProfile(data as UserProfile);
+          setUpdatedProfile(data as UserProfile);
         } else {
-          // If no profile exists, use sample data
-          setProfile({
-            id: '1',
-            name: 'John Appleseed',
-            email: 'john.appleseed@example.com',
+          // If no profile exists, create a default one
+          const defaultProfile: UserProfile = {
+            id: user.id,
+            name: 'Your Name',
+            email: user.email || 'your.email@example.com',
             phone: '+1 (555) 123-4567',
-            location: 'Cupertino, CA',
+            location: 'Your Location',
             avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80'
-          });
+          };
+          setProfile(defaultProfile);
+          setUpdatedProfile(defaultProfile);
+
+          // Optionally, save the default profile to the database
+          await supabase.from('profiles').insert([defaultProfile]);
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -59,6 +74,54 @@ const Profile = () => {
 
     fetchProfile();
   }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setUpdatedProfile(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditProfile = () => {
+    setIsEditing(true);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.error('No user logged in');
+        return;
+      }
+
+      if (!updatedProfile) {
+        console.error('No profile data to save');
+        return;
+      }
+
+      // Update the profiles table with the remaining data
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: updatedProfile.name,
+          email: updatedProfile.email,
+          phone: updatedProfile.phone,
+          location: updatedProfile.location,
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      setProfile(updatedProfile);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -82,9 +145,36 @@ const Profile = () => {
                 className="w-full h-full object-cover"
               />
             </div>
-            <h3 className="text-xl font-medium">{profile.name}</h3>
-            <p className="text-[var(--ios-gray)] mt-1">{profile.location}</p>
-            <button className="ios-button mt-4">Edit Profile</button>
+            {isEditing ? (
+              <input
+                type="text"
+                name="name"
+                value={updatedProfile?.name || ''}
+                onChange={handleInputChange}
+                className="text-xl font-medium text-center"
+              />
+            ) : (
+              <h3 className="text-xl font-medium">{profile.name}</h3>
+            )}
+            {isEditing ? (
+              <input
+                type="text"
+                name="location"
+                value={updatedProfile?.location || ''}
+                onChange={handleInputChange}
+                className="text-[var(--ios-gray)] mt-1 text-center"
+              />
+            ) : (
+              <p className="text-[var(--ios-gray)] mt-1">{profile.location}</p>
+            )}
+            {isEditing ? (
+              <div className="flex space-x-4 mt-4">
+                <button className="ios-button" onClick={handleSaveProfile}>Save</button>
+                <button className="ios-button" onClick={() => setIsEditing(false)}>Cancel</button>
+              </div>
+            ) : (
+              <button className="ios-button mt-4" onClick={handleEditProfile}>Edit Profile</button>
+            )}
           </div>
           
           <div className="ios-card">
@@ -97,7 +187,17 @@ const Profile = () => {
                 </div>
                 <div>
                   <p className="text-sm text-[var(--ios-gray)]">Name</p>
-                  <p>{profile.name}</p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="name"
+                      value={updatedProfile?.name || ''}
+                      onChange={handleInputChange}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <p>{profile.name}</p>
+                  )}
                 </div>
               </div>
               
@@ -107,7 +207,17 @@ const Profile = () => {
                 </div>
                 <div>
                   <p className="text-sm text-[var(--ios-gray)]">Email</p>
-                  <p>{profile.email}</p>
+                  {isEditing ? (
+                    <input
+                      type="email"
+                      name="email"
+                      value={updatedProfile?.email || ''}
+                      onChange={handleInputChange}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <p>{profile.email}</p>
+                  )}
                 </div>
               </div>
               
@@ -117,7 +227,17 @@ const Profile = () => {
                 </div>
                 <div>
                   <p className="text-sm text-[var(--ios-gray)]">Phone</p>
-                  <p>{profile.phone}</p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="phone"
+                      value={updatedProfile?.phone || ''}
+                      onChange={handleInputChange}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <p>{profile.phone}</p>
+                  )}
                 </div>
               </div>
               
@@ -127,7 +247,17 @@ const Profile = () => {
                 </div>
                 <div>
                   <p className="text-sm text-[var(--ios-gray)]">Location</p>
-                  <p>{profile.location}</p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="location"
+                      value={updatedProfile?.location || ''}
+                      onChange={handleInputChange}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <p>{profile.location}</p>
+                  )}
                 </div>
               </div>
             </div>
